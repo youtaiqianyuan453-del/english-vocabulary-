@@ -67,7 +67,19 @@ $('card').addEventListener('click',()=>{if(suppressClick){suppressClick=false;re
 $('card').addEventListener('touchstart',e=>{const t=e.changedTouches[0];touch={x:t.clientX,y:t.clientY}},{passive:true});
 $('card').addEventListener('touchend',e=>{if(!touch)return;const t=e.changedTouches[0],dx=t.clientX-touch.x,dy=t.clientY-touch.y;touch=null;if(Math.abs(dx)>65&&Math.abs(dx)>Math.abs(dy)*1.4){suppressClick=true;move(dx<0?1:-1);setTimeout(()=>{suppressClick=false},400)}},{passive:true});
 $('prev').addEventListener('click',()=>move(-1));$('next').addEventListener('click',()=>move(1));
-$('mark').addEventListener('click',()=>{const w=current();if(!w)return;learned.add(w.id);save();rebuild();say(w.word+' を出題から除外しました')});
+$('mark').addEventListener('click',()=>{
+  const w=current();
+  if(!w)return;
+  learned.add(w.id);
+  save();
+  // 現在の単語だけをリストから除外し、次の未習得単語を表示する。
+  // 全体を再生成しないので、現在の位置とシャッフル順を維持できる。
+  queue.splice(index,1);
+  if(index>=queue.length)index=Math.max(0,queue.length-1);
+  shown=false;
+  render();
+  say(w.word+' を出題から除外しました');
+});
 $('reset').addEventListener('click',()=>{if(!confirm('今選んでいる「'+(deck==='test'?'テスト':'まとめ')+'」の覚えた状態をすべてリセットしますか？'))return;for(const w of base())learned.delete(w.id);save();rebuild();say('覚えた状態をリセットしました')});
 $('shuffle').addEventListener('click',()=>{shuffled=true;rebuild();say('シャッフルしました')});$('ordered').addEventListener('click',()=>{shuffled=false;rebuild();say('番号順に戻しました')});
 $('export').addEventListener('click',()=>{const data={format:'toeic-vocab-v2',exportedAt:new Date().toISOString(),learned:[...learned].sort((a,b)=>a-b),cards:extra,testStart};const file=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(file),a=document.createElement('a');a.href=url;a.download='英単語_データと学習記録.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);say('単語と学習記録をダウンロードしました')});
