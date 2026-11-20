@@ -18,6 +18,8 @@ const APPKEY='toeic-vocab-user-cards-v2';
 const starterCards=JSON.parse(document.getElementById('starter-data').textContent);
 const toeicCards=JSON.parse(document.getElementById('toeic-data').textContent);
 const WRONGKEY='toeic-vocab-wrong-v1';
+const VIEWKEY='toeic-vocab-current-position-v1';
+let savedView=null;try{const v=JSON.parse(localStorage.getItem(VIEWKEY)||'null');if(v&&typeof v==='object')savedView=v}catch(e){}
 let mistakes={};try{const m=JSON.parse(localStorage.getItem(WRONGKEY)||'{}');if(m&&typeof m==='object'&&!Array.isArray(m))mistakes=m}catch(e){}
 let extra=[...starterCards],testStart=601,testEnd=null,learned=new Set();
 try{const x=JSON.parse(localStorage.getItem(KEY)||'[]');if(Array.isArray(x))learned=new Set(x.filter(Number.isInteger))}catch(e){}
@@ -37,6 +39,7 @@ let focus='all';let deck='test',range='all',shuffled=false,queue=[],index=0,show
 const isInTest=id=>id>=testStart&&id<=testEnd;
 const base=()=>deck==='toeic'?toeicCards:all.filter(w=>deck==='test'?isInTest(w.id):!isInTest(w.id));
 const say=t=>$('message').textContent=t;
+function saveView(){try{localStorage.setItem(VIEWKEY,JSON.stringify({deck,range,focus,shuffled,currentId:current()?.id??null,shown}))}catch(e){}}
 const save=()=>{try{localStorage.setItem(WRONGKEY,JSON.stringify(mistakes));localStorage.setItem(KEY,JSON.stringify([...learned]));localStorage.setItem(APPKEY,JSON.stringify({cards:extra,testStart,testEnd}));return true}catch(e){say('保存できません。通常のSafariモードで開いてください。');return false}};
 const groupIndex=w=>Math.floor((w.id-1001)/50);
 const groupCards=n=>toeicCards.slice(n*50,(n+1)*50);
@@ -51,7 +54,7 @@ $('count').textContent=count+' / '+b.length+'語';$('left').textContent='残り 
 $('progress').style.width=(b.length?100*count/b.length:0)+'%';
 if(deck==='toeic'){const n=activeGroup();$('setNotice').textContent='セット '+(n+1)+'/14｜'+(n*50+1)+'〜'+((n+1)*50)+'語｜習得 '+count+'/50。'+(count===50?(n===13?'全700語クリア！おめでとう！':'このセットはクリア！次のセットが解放されました。'):'この50語をすべて「覚えた」にすると次へ進めます。');}
 const w=current();$('pool').textContent='出題対象 '+queue.length+'語';$('position').textContent=w?(index+1)+' / '+queue.length:'0 / 0';
-$('wrongCount').textContent=deck==='toeic'?'間違えた記録 '+toeicCards.filter(c=>(mistakes[c.id]||0)>0).length+'語':'';$('card').classList.toggle('hidden',!w);$('complete').classList.toggle('hidden',!!w);$('complete').querySelector('strong').textContent=deck==='toeic'&&focus==='wrong'?'このセットの苦手単語は復習済み！':deck==='toeic'&&groupDone(activeGroup())?'🎉 50語クリア！':'🎉 この範囲は全部覚えたよ！';
+saveView();$('wrongCount').textContent=deck==='toeic'?'間違えた記録 '+toeicCards.filter(c=>(mistakes[c.id]||0)>0).length+'語':'';$('card').classList.toggle('hidden',!w);$('complete').classList.toggle('hidden',!!w);$('complete').querySelector('strong').textContent=deck==='toeic'&&focus==='wrong'?'このセットの苦手単語は復習済み！':deck==='toeic'&&groupDone(activeGroup())?'🎉 50語クリア！':'🎉 この範囲は全部覚えたよ！';
 $('mark').disabled=!w;$('wrong').disabled=!w;$('wrong').classList.toggle('hidden',deck!=='toeic');$('prev').disabled=!w||index===0;$('next').disabled=!w||index===queue.length-1;
 if(!w)return;
 $('number').textContent='NO. '+w.id;$('word').textContent=w.word;$('phrase').textContent=w.phrase;
@@ -210,5 +213,19 @@ $('addwords').addEventListener('click',()=>{
   el.textContent=(mode==='update'?'更新完了！ ':'登録完了！ ')+sorted.length+'語（'+min+'〜'+last+'番）をテストに設定しました。以前の単語はまとめで復習できます。';
   say('単語リストをテストに設定しました');
 });
-ranges();rebuild();showImportPreview();
+// 前回のタブ・50語セット・カードの位置を復元。以前の学習記録はそのまま使う。
+if(savedView&&['test','review','toeic'].includes(savedView.deck)){
+  switchDeck(savedView.deck);
+  if(typeof savedView.range==='string'&&Array.from($('range').options).some(o=>o.value===savedView.range&&!o.disabled)){
+    range=savedView.range;$('range').value=range;
+  }
+  if(savedView.focus==='wrong'&&deck==='toeic'){focus='wrong';$('focus').value='wrong'}
+  shuffled=!!savedView.shuffled;
+  rebuild();
+  if(Number.isInteger(savedView.currentId)){
+    const pos=queue.findIndex(w=>w.id===savedView.currentId);
+    if(pos>=0){index=pos;shown=!!savedView.shown;render()}
+  }
+}else{ranges();rebuild()}
+showImportPreview();
 })();</script></body></html>
